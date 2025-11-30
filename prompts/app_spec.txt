@@ -1,0 +1,362 @@
+<project_specification>
+  <project_name>Minimal Notion-Style Notes – V1 Prototype</project_name>
+
+  <overview>
+    Build a fast, opinionated V1 note-taking web app inspired by Notion, but with:
+    - Only core “pages + nested pages + blocks” features.
+    - Single-user, browser-based (no auth, no backend DB).
+    - Data stored in browser localStorage.
+    - Clean, Notion-like layout (sidebar page tree + main editor).
+
+    Goal:
+    - The entire V1 should be simple enough that an AI code agent can implement it in ~5–10 minutes:
+      - Minimal tech stack.
+      - No external services.
+      - Straightforward data model and UI.
+  </overview>
+
+  <technology_stack>
+    <design_for_ai_agent>
+      - Single React SPA with Vite and TypeScript.
+      - No backend server logic required beyond static serving (no DB, no API).
+      - All data lives in browser memory + localStorage.
+      - Clear, small set of React components and TypeScript types.
+    </design_for_ai_agent>
+
+    <frontend>
+      <framework>
+        - Vite + React + TypeScript (use `npm create vite@latest . -- --template react-ts`)
+        - Do NOT use Next.js - keep it simple with Vite
+      </framework>
+      <styling>
+        - Tailwind CSS for layout and spacing.
+        - No extra component libraries required.
+      </styling>
+      <state_management>
+        - React useState / useReducer + context for global app state.
+        - Persist state to localStorage on every change.
+      </state_management>
+      <routing>
+        - NO router needed for V1 - single page app.
+        - Sidebar drives which page is selected via React state.
+        - All navigation is handled by updating selectedPageId in state.
+      </routing>
+      <persistence>
+        - localStorage key: "notion-lite-app-data".
+        - Load on app start; if empty, seed with a single "Getting Started" page.
+      </persistence>
+    </frontend>
+
+    <backend>
+      - None for V1.
+      - No database, no server API, no auth.
+      - App can be deployed as static files (e.g., Vercel/Netlify).
+    </backend>
+
+    <external_dependencies_v1>
+      - No external APIs or services.
+      - No auth providers, no email, no file uploads.
+    </external_dependencies_v1>
+  </technology_stack>
+
+  <v1_scope>
+    <in_scope>
+      - Single user (whatever browser is open).
+      - Pages:
+        - Create, rename, delete pages.
+        - Hierarchical pages (nested pages: parent/child relationship).
+      - Editor:
+        - Page title.
+        - Content is made of “blocks”.
+        - Basic block types:
+          - Paragraph
+          - Heading 1
+          - Heading 2
+          - Bulleted list item
+          - To-do item (checkbox)
+          - Divider
+        - Each block is editable.
+        - Add new block with Enter.
+        - Delete block with Backspace when empty.
+      - Navigation:
+        - Left sidebar page tree (like Notion):
+          - Top-level pages.
+          - Nested pages indented under parents.
+          - Click to open a page.
+          - “+ New page” button.
+        - Simple search box (filter pages by title).
+      - Persistence:
+        - All pages and blocks saved to localStorage continuously.
+      - UI:
+        - Clean, minimal, Notion-inspired look.
+    </in_scope>
+
+    <out_of_scope_for_v1>
+      - Multi-user, accounts, authentication.
+      - Real-time collaboration or presence.
+      - Sharing links or permissions.
+      - Databases/tables, kanban boards, galleries.
+      - Rich embeds (Figma, YouTube, etc.).
+      - File uploads.
+      - Comments, history, versioning.
+      - Slash commands beyond a minimal “change block type” control.
+      - Mobile-specific layout tuning (desktop-first is fine).
+    </out_of_scope_for_v1>
+  </v1_scope>
+
+  <core_features>
+    <data_model>
+      - The app runs entirely in the browser with a simple object model:
+
+      type PageId = string;
+      type BlockId = string;
+
+      Page {
+        id: PageId;
+        parentId: PageId | null;  // null = top-level page
+        title: string;
+        createdAt: number;
+        updatedAt: number;
+        blockIds: BlockId[];      // order of blocks in this page
+      }
+
+      Block {
+        id: BlockId;
+        pageId: PageId;
+        type: "paragraph" | "heading1" | "heading2" | "bullet" | "todo" | "divider";
+        text: string;             // divider can ignore text
+        checked?: boolean;        // for todo blocks only
+      }
+
+      AppState {
+        pages: Record<PageId, Page>;
+        blocks: Record<BlockId, Block>;
+        selectedPageId: PageId | null;
+      }
+
+      - This AppState is serialized to JSON and stored in localStorage.
+    </data_model>
+
+    <sidebar_navigation>
+      - Left sidebar (fixed width ~260px) showing:
+        - App/logo title at top (e.g., "Notion Lite").
+        - Search input:
+          - Filters visible pages list by title substring.
+        - “New Page” button.
+        - Page tree:
+          - Indented list showing pages by parent/child relationships.
+          - Click to select a page.
+          - Active page highlighted.
+          - Simple expand/collapse caret for pages that have children (optional, but nice).
+      - Adding a page:
+        - When user clicks “New Page”:
+          - Create a new page with:
+            - default title “Untitled”.
+            - parent = currently selected page, or null if none selected.
+          - Navigate to this new page and focus the title input.
+    </sidebar_navigation>
+
+    <page_editor>
+      - Layout:
+        - Top-centered main content area with generous padding.
+        - Page title at top:
+          - Large font (e.g., text-3xl).
+          - Inline editable (input or contentEditable).
+        - Below title: vertical stack of blocks.
+
+      - Blocks behavior:
+        - Each block renders according to its type:
+          - paragraph → normal text.
+          - heading1 → large bold text.
+          - heading2 → medium bold text.
+          - bullet → bullet dot + text.
+          - todo → checkbox + text.
+          - divider → horizontal rule line.
+        - Editing:
+          - Each block’s text is editable via an input or contentEditable div.
+          - Press Enter:
+            - If block is not divider:
+              - Splits/creates a new block below of the same type (or default to paragraph).
+          - Backspace on empty block:
+            - Removes the block and focuses previous block (if any).
+        - Block type control:
+          - On the left of each block (or via a small icon on hover), show a tiny dropdown:
+            - Options: Paragraph, Heading 1, Heading 2, Bullet list, To-do, Divider.
+          - Changing the type immediately re-renders the block.
+        - Todo blocks:
+          - Checkbox toggles `checked` boolean on click.
+          - Checked items show text with muted color / strikethrough (optional but nice).
+
+    </page_editor>
+
+    <keyboard_flow_minimal>
+      - Enter → create new block below.
+      - Shift+Enter → newline (optional; if complex, can skip).
+      - Backspace in empty block → delete block, move focus to previous.
+    </keyboard_flow_minimal>
+
+    <persistence_and_initial_state>
+      - On app load:
+        - Try to read localStorage["notion-lite-app-data"].
+        - If missing:
+          - Create a default page:
+            - title: "Getting Started"
+            - One or two example blocks (heading + paragraph).
+          - Set selectedPageId to this page.
+      - On any state change (pages/blocks/selection):
+        - Serialize AppState to JSON and write to localStorage.
+    </persistence_and_initial_state>
+
+    <basic_theming>
+      - Light theme only.
+      - Background: light gray (#f5f5f5 or similar).
+      - Editor area: white card with rounded corners and subtle shadow.
+      - Fonts: system sans or Inter-like.
+      - Heading styles visually distinct.
+    </basic_theming>
+  </core_features>
+
+  <api_endpoints_summary>
+    - None required in V1.
+    - Fully client-side application.
+  </api_endpoints_summary>
+
+  <ux_ui_requirements>
+    <overall_feel>
+      - Very clean, low-distraction workspace:
+        - Lots of white space.
+        - Subtle separators.
+      - Similar to Notion in spirit:
+        - Sidebar + main page.
+        - Typographic hierarchy (title vs headings vs body).
+      - Animations:
+        - Simple, fast transitions (e.g., sidebar hover, block focus), but keep implementation minimal.
+    </overall_feel>
+
+    <layout>
+      - Desktop-first:
+        - Left sidebar, fixed width.
+        - Right: main editor area fills remaining space.
+      - Sidebar:
+        - Scrollable if many pages.
+        - Active page clearly highlighted.
+      - Editor:
+        - Max-width container (~780px) centered horizontally.
+        - Title at top, large font.
+        - Blocks stacked vertically with consistent spacing.
+    </layout>
+
+    <micro_interactions>
+      - Hovering a block:
+        - Show a small “block handle” on the left (icon) that, when clicked, shows block type dropdown.
+      - When creating a new page:
+        - Immediately focus title with placeholder text “Untitled”.
+      - Empty states:
+        - If no page selected (shouldn’t normally happen): show “Select or create a page”.
+    </micro_interactions>
+
+    <accessibility_minimum>
+      - Ensure text inputs are keyboard accessible.
+      - Sidebar navigation via keyboard tabbing.
+      - Reasonable contrast between text and background.
+    </accessibility_minimum>
+  </ux_ui_requirements>
+
+  <implementation_steps>
+    <step number="0">
+      <title>Project Setup with Vite</title>
+      <tasks>
+        - Initialize project: `npm create vite@latest . -- --template react-ts`
+        - Install dependencies: `npm install`
+        - Install Tailwind CSS: `npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p`
+        - Configure Tailwind in tailwind.config.js and src/index.css
+        - Configure vite.config.ts to use port 3000: `server: { port: 3000 }`
+        - Create init.sh script to automate setup
+      </tasks>
+    </step>
+
+    <step number="1">
+      <title>Data Model & State Management</title>
+      <tasks>
+        - Define TypeScript types: Page, Block, AppState.
+        - Implement a React context (e.g., AppStateProvider) holding:
+          - state: AppState
+          - actions: createPage, updatePageTitle, deletePage, createBlock, updateBlock, deleteBlock, setSelectedPage.
+        - Implement localStorage load/save logic.
+      </tasks>
+    </step>
+
+    <step number="2">
+      <title>Layout Shell (Sidebar + Editor)</title>
+      <tasks>
+        - Create root layout with:
+          - Sidebar on the left.
+          - Main editor area on the right.
+        - Wire sidebar click to setSelectedPage.
+        - Ensure selected page’s data flows to editor.
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>Sidebar Page Tree & Search</title>
+      <tasks>
+        - Render tree of pages:
+          - Simple indentation based on parentId.
+        - Implement “New Page” button:
+          - Create a new page and select it.
+        - Implement search input:
+          - Filter pages by title in the list.
+      </tasks>
+    </step>
+
+    <step number="4">
+      <title>Page Editor & Blocks</title>
+      <tasks>
+        - Implement PageEditor:
+          - Editable title field bound to page.title.
+          - Block list mapped from page.blockIds.
+        - Implement Block component:
+          - Renders different JSX per block.type.
+          - Handles text editing, Enter, Backspace behaviors.
+        - Implement block type dropdown on each block.
+      </tasks>
+    </step>
+
+    <step number="5">
+      <title>Persistence & Polish</title>
+      <tasks>
+        - Ensure all page/block changes trigger localStorage save.
+        - Add initial “Getting Started” page on first load.
+        - Apply final styling: spacing, fonts, colors to feel Notion-like.
+        - Add minimal animations (CSS transitions) for hover/focus.
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      - User can:
+        - Create, rename, and delete pages.
+        - Nest pages (set parent and see them indented in sidebar).
+        - Edit page title and content blocks.
+        - Use paragraph, heading1, heading2, bullet, todo, and divider blocks.
+        - Add/remove blocks with Enter/Backspace.
+        - Filter pages by title using search.
+        - Close and reopen browser and still see all notes (localStorage works).
+    </functionality>
+
+    <ux>
+      - The app feels:
+        - Simple and focused.
+        - Visually reminiscent of Notion’s layout and typography.
+        - Fast with no obvious jank when typing or switching pages.
+    </ux>
+
+    <engineering>
+      - Code is:
+        - Contained in a single Vite + React + TypeScript app.
+        - Structured with clear types for Page and Block.
+        - Easy for an AI + human to extend later (e.g., add slash commands or databases).
+    </engineering>
+  </success_criteria>
+</project_specification>

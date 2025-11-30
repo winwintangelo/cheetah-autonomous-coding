@@ -1,0 +1,11 @@
+# Core dependencies
+httpx>=0.27.0  # For OpenRouter API calls
+python-dotenv>=1.0.0  # For .env file support
+playwright>=1.40.0  # Browser automation
+
+# After installing, run:
+#   playwright install chromium
+#
+# For OpenRouter agent:
+#   export OPENROUTER_API_KEY='your-api-key-here'
+#   Get your key from: https://openrouter.ai/keys
