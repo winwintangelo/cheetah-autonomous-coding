@@ -122,7 +122,7 @@ autonomous-coding/
 ├── logging_util.py           # Dual logging (stdout + file)
 ├── validate_agent.py         # Agent setup validation script
 ├── prompts/
-│   ├── app_spec.txt          # Application specification
+│   ├── app_spec.txt          # Application specification (example - replace with your own!)
 │   ├── initializer_prompt.md # First session prompt
 │   └── coding_prompt.md      # Continuation session prompt
 ├── requirements.txt          # Python dependencies
@@ -171,7 +171,18 @@ The application will typically be available at `http://localhost:5173` (check th
 
 ### Changing the Application
 
-Edit `prompts/app_spec.txt` to specify a different application to build.
+The included `prompts/app_spec.txt` is just an **example specification** (a project management app). You should replace it with your own project requirements.
+
+To build your own application:
+1. Create your own specification describing the app you want to build
+2. Replace the contents of `prompts/app_spec.txt` with your specification
+3. Run the agent with a fresh project directory
+
+Your specification should include:
+- Tech stack (frontend, backend, database)
+- Core features and functionality
+- UI/UX requirements
+- Any specific constraints or preferences
 
 ### Adjusting Feature Count
 
